@@ -870,33 +870,33 @@
         <h3 class="panel-section-title">Burst Physics</h3>
         
         <div class="control-row">
-          <label for="particle-count">Particle Count <span class="value-display" id="particle-count-val">120</span></label>
-          <input type="range" id="particle-count" min="80" max="200" step="5" value="120" oninput="updateVal('particle-count')">
+          <label for="particle-count">Particle Count <span class="value-display" id="particle-count-val">200</span></label>
+          <input type="range" id="particle-count" min="80" max="200" step="5" value="200" oninput="updateVal('particle-count')">
         </div>
 
         <div class="control-row">
-          <label for="explosion-scale">Explosion Scale <span class="value-display" id="explosion-scale-val">0.55</span></label>
-          <input type="range" id="explosion-scale" min="0.2" max="1.0" step="0.05" value="0.55" oninput="updateVal('explosion-scale')">
+          <label for="explosion-scale">Explosion Scale <span class="value-display" id="explosion-scale-val">1</span></label>
+          <input type="range" id="explosion-scale" min="0.2" max="1.0" step="0.05" value="1" oninput="updateVal('explosion-scale')">
         </div>
 
         <div class="control-row">
-          <label for="particle-size">Particle Size <span class="value-display" id="particle-size-val">1.4</span></label>
-          <input type="range" id="particle-size" min="1.0" max="2.5" step="0.1" value="1.4" oninput="updateVal('particle-size')">
+          <label for="particle-size">Particle Size <span class="value-display" id="particle-size-val">2.5</span></label>
+          <input type="range" id="particle-size" min="1.0" max="2.5" step="0.1" value="2.5" oninput="updateVal('particle-size')">
         </div>
 
         <div class="control-row">
-          <label for="burst-speed">Initial Burst Speed <span class="value-display" id="burst-speed-val">250 px/s</span></label>
-          <input type="range" id="burst-speed" min="150" max="400" step="10" value="250" oninput="updateVal('burst-speed')">
+          <label for="burst-speed">Initial Burst Speed <span class="value-display" id="burst-speed-val">330 px/s</span></label>
+          <input type="range" id="burst-speed" min="150" max="400" step="10" value="330" oninput="updateVal('burst-speed')">
         </div>
 
         <div class="control-row">
-          <label for="gravity">Gravity <span class="value-display" id="gravity-val">100 px/s²</span></label>
-          <input type="range" id="gravity" min="50" max="250" step="10" value="100" oninput="updateVal('gravity')">
+          <label for="gravity">Gravity <span class="value-display" id="gravity-val">120 px/s²</span></label>
+          <input type="range" id="gravity" min="50" max="250" step="10" value="120" oninput="updateVal('gravity')">
         </div>
 
         <div class="control-row">
-          <label for="air-drag">Air Drag Coefficient <span class="value-display" id="air-drag-val">0.03</span></label>
-          <input type="range" id="air-drag" min="0.02" max="0.05" step="0.005" value="0.03" oninput="updateVal('air-drag')">
+          <label for="air-drag">Air Drag Coefficient <span class="value-display" id="air-drag-val">0.045</span></label>
+          <input type="range" id="air-drag" min="0.02" max="0.05" step="0.005" value="0.045" oninput="updateVal('air-drag')">
         </div>
       </div>
 
@@ -905,13 +905,13 @@
         <h3 class="panel-section-title">Timing & Trails</h3>
 
         <div class="control-row">
-          <label for="lifetime">Particle Lifetime <span class="value-display" id="lifetime-val">2.2s</span></label>
-          <input type="range" id="lifetime" min="1.0" max="3.0" step="0.1" value="2.2" oninput="updateVal('lifetime')">
+          <label for="lifetime">Particle Lifetime <span class="value-display" id="lifetime-val">3s</span></label>
+          <input type="range" id="lifetime" min="1.0" max="3.0" step="0.1" value="3" oninput="updateVal('lifetime')">
         </div>
 
         <div class="control-row">
-          <label for="trail-length">Trail Length <span class="value-display" id="trail-length-val">4 ghosts</span></label>
-          <input type="range" id="trail-length" min="3" max="6" step="1" value="4" oninput="updateVal('trail-length')">
+          <label for="trail-length">Trail Length <span class="value-display" id="trail-length-val">5 ghosts</span></label>
+          <input type="range" id="trail-length" min="3" max="6" step="1" value="5" oninput="updateVal('trail-length')">
         </div>
       </div>
 
@@ -968,6 +968,8 @@
           path2D: new Path2D(d),
           px: center.x,
           py: center.y,
+          width: center.width,
+          height: center.height,
           ox: center.x - 235,
           oy: center.y - 231
         };
@@ -1022,7 +1024,9 @@
       }
       return {
         x: (minX + maxX) / 2,
-        y: (minY + maxY) / 2
+        y: (minY + maxY) / 2,
+        width: maxX - minX,
+        height: maxY - minY
       };
     }
 
@@ -1037,23 +1041,24 @@
       display.textContent = val;
     }
 
-    // Particle class representing vector strokes from fireworks.svg drawn centered at simulated (x, y)
+    // Particle class for a scratch-built firework test. These are generated marks,
+    // not pieces of the static SVG, so there is no fixed central layer to retain.
     class Particle {
-      constructor(path2D, px, py, x, y, vx, vy, scale, lifetime) {
-        this.path = path2D;
-        this.px = px;
-        this.py = py;
-        
-        // Spawn centered at initial coordinates (scaled offsets)
+      constructor(x, y, vx, vy, size, lifetime) {
         this.x = x;
         this.y = y;
         this.vx = vx;
         this.vy = vy;
+        this.size = size;
         this.lifetime = lifetime;
         this.age = 0;
         this.history = [];
-        this.burnOutThreshold = 0.6 + Math.random() * 0.4;
-        this.scale = scale; // Scaled up to make transparent fills/outlines visible
+        this.angle = Math.random() * Math.PI * 2;
+        this.spin = (Math.random() - 0.5) * 8;
+        this.dragBias = 0.65 + Math.random() * 0.7;
+        this.gravityBias = 0.75 + Math.random() * 0.7;
+        this.fadeStart = 0.5 + Math.random() * 0.22;
+        this.opacity = 1;
       }
 
       update(dt, drag, gravity) {
@@ -1063,22 +1068,23 @@
         if (progress >= 1.0) return false;
 
         // Store history for trails
-        this.history.unshift({ x: this.x, y: this.y });
+        this.history.unshift({ x: this.x, y: this.y, angle: this.angle });
         const trailLen = parseInt(document.getElementById('trail-length').value);
         if (this.history.length > trailLen) {
           this.history.pop();
         }
 
-        // Apply drag decay and gravity fall
-        this.vx *= (1 - drag);
-        this.vy *= (1 - drag);
-        this.vy += gravity * dt;
+        const dragFrame = Math.pow(Math.max(0, 1 - drag * this.dragBias), dt * 60);
+        this.vx *= dragFrame;
+        this.vy *= dragFrame;
+        this.vy += gravity * this.gravityBias * dt;
 
         this.x += this.vx * dt;
         this.y += this.vy * dt;
+        this.angle += this.spin * dt;
 
-        // Binary Opacity (ON/OFF - No flashing / CRT pop shutdown)
-        this.opacity = (progress > this.burnOutThreshold) ? 0.0 : 1.0;
+        const fadeProgress = Math.max(0, (progress - this.fadeStart) / (1 - this.fadeStart));
+        this.opacity = Math.max(0, 1 - fadeProgress);
 
         return true;
       }
@@ -1086,32 +1092,34 @@
       draw() {
         if (this.opacity <= 0.01) return;
 
-        // Draw trail ghosts using white outlines only (constant scale, binary flicker)
+        // Draw fading trail ghosts.
+        const drawSize = this.size * 1.8;
         for (let i = this.history.length - 1; i >= 0; i--) {
           const pos = this.history[i];
-          const ghostActive = Math.random() > 0.3; // Trail flickering
-          if (!ghostActive) continue;
+          const trailProgress = (i + 1) / (this.history.length + 1);
+          const trailAlpha = this.opacity * (1 - trailProgress) * 0.2;
+          if (trailAlpha <= 0.02) continue;
 
           ctx.save();
           ctx.translate(cx + pos.x, cy + pos.y);
-          ctx.scale(this.scale, this.scale);
-          ctx.translate(-this.px, -this.py);
+          ctx.rotate(pos.angle);
           ctx.strokeStyle = '#ffffff';
-          ctx.globalAlpha = 1.0; // Strictly ON
-          ctx.lineWidth = 2.0 / this.scale; // Rendered stroke exactly 2.0px
-          ctx.stroke(this.path);
+          ctx.globalAlpha = trailAlpha;
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(-drawSize / 2, -drawSize / 2, drawSize, drawSize);
           ctx.restore();
         }
 
-        // Draw main head (white outline only, thick stroke)
+        // Draw the main generated particle mark.
         ctx.save();
         ctx.translate(cx + this.x, cy + this.y);
-        ctx.scale(this.scale, this.scale);
-        ctx.translate(-this.px, -this.py);
+        ctx.rotate(this.angle);
         ctx.strokeStyle = '#ffffff';
-        ctx.globalAlpha = this.opacity; // Strictly ON until burnout
-        ctx.lineWidth = 2.0 / this.scale; // Rendered stroke exactly 2.0px
-        ctx.stroke(this.path);
+        ctx.globalAlpha = this.opacity;
+        ctx.lineWidth = 1.5;
+
+        ctx.strokeRect(-drawSize / 2, -drawSize / 2, drawSize, drawSize);
+
         ctx.restore();
       }
     }
@@ -1211,8 +1219,6 @@
     }
 
     function explode() {
-      if (pathData.length === 0) return;
-
       const count = parseInt(document.getElementById('particle-count').value);
       const explosionScale = parseFloat(document.getElementById('explosion-scale').value);
       const particleSize = parseFloat(document.getElementById('particle-size').value);
@@ -1222,23 +1228,20 @@
       particles = [];
 
       for (let i = 0; i < count; i++) {
-        // Map elements directly to design paths to preserve non-overlapping layout
-        const item = pathData[i % pathData.length];
-        
-        // Spawn positions: start at design offset scaled by explosionScale
-        const rx = item.ox * explosionScale;
-        const ry = item.oy * explosionScale;
-        
-        // Radial velocity pointing outward from the center
-        const angle = Math.atan2(item.oy, item.ox);
-        const explodeAngle = angle + (Math.random() - 0.5) * 0.5; // +/- 14 degrees
-        const speed = baseSpeed * (0.6 + Math.random() * 0.8) * explosionScale; // 60% to 140% speed
+        const angle = Math.random() * Math.PI * 2;
+        const startRadius = Math.sqrt(Math.random()) * 10 * explosionScale;
+        const rx = Math.cos(angle) * startRadius;
+        const ry = Math.sin(angle) * startRadius;
+
+        const speed = baseSpeed * (0.55 + Math.random() * 1.45) * explosionScale;
+        const tangent = (Math.random() - 0.5) * 0.45;
+        const explodeAngle = angle + tangent;
         
         const vx = Math.cos(explodeAngle) * speed;
         const vy = Math.sin(explodeAngle) * speed;
         
         const particleLife = lifetime * (0.75 + Math.random() * 0.5);
-        particles.push(new Particle(item.path2D, item.px, item.py, rx, ry, vx, vy, particleSize, particleLife));
+        particles.push(new Particle(rx, ry, vx, vy, particleSize * (0.9 + Math.random() * 1.15), particleLife));
       }
     }
 
@@ -1248,14 +1251,14 @@
     }
 
     function resetControls() {
-      document.getElementById('particle-count').value = 120;
-      document.getElementById('explosion-scale').value = 0.55;
-      document.getElementById('particle-size').value = 1.4;
-      document.getElementById('burst-speed').value = 250;
-      document.getElementById('gravity').value = 100;
-      document.getElementById('air-drag').value = 0.03;
-      document.getElementById('lifetime').value = 2.2;
-      document.getElementById('trail-length').value = 4;
+      document.getElementById('particle-count').value = 200;
+      document.getElementById('explosion-scale').value = 1;
+      document.getElementById('particle-size').value = 2.5;
+      document.getElementById('burst-speed').value = 330;
+      document.getElementById('gravity').value = 120;
+      document.getElementById('air-drag').value = 0.045;
+      document.getElementById('lifetime').value = 3;
+      document.getElementById('trail-length').value = 5;
       document.getElementById('toggle-overlay').checked = false;
 
       const controls = ['particle-count', 'explosion-scale', 'particle-size', 'burst-speed', 'gravity', 'air-drag', 'lifetime', 'trail-length'];
