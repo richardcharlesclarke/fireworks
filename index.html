@@ -875,13 +875,13 @@
         </div>
 
         <div class="control-row">
-          <label for="explosion-scale">Explosion Scale <span class="value-display" id="explosion-scale-val">1</span></label>
-          <input type="range" id="explosion-scale" min="0.2" max="1.0" step="0.05" value="1" oninput="updateVal('explosion-scale')">
+          <label for="explosion-scale">Explosion Scale <span class="value-display" id="explosion-scale-val">0.75</span></label>
+          <input type="range" id="explosion-scale" min="0.2" max="1.0" step="0.05" value="0.75" oninput="updateVal('explosion-scale')">
         </div>
 
         <div class="control-row">
-          <label for="particle-size">Particle Size <span class="value-display" id="particle-size-val">2.5</span></label>
-          <input type="range" id="particle-size" min="1.0" max="2.5" step="0.1" value="2.5" oninput="updateVal('particle-size')">
+          <label for="particle-size">Particle Size <span class="value-display" id="particle-size-val">1.7</span></label>
+          <input type="range" id="particle-size" min="1.0" max="2.5" step="0.1" value="1.7" oninput="updateVal('particle-size')">
         </div>
 
         <div class="control-row">
@@ -890,13 +890,13 @@
         </div>
 
         <div class="control-row">
-          <label for="gravity">Gravity <span class="value-display" id="gravity-val">120 px/s²</span></label>
-          <input type="range" id="gravity" min="50" max="250" step="10" value="120" oninput="updateVal('gravity')">
+          <label for="gravity">Gravity <span class="value-display" id="gravity-val">190 px/s²</span></label>
+          <input type="range" id="gravity" min="50" max="250" step="10" value="190" oninput="updateVal('gravity')">
         </div>
 
         <div class="control-row">
-          <label for="air-drag">Air Drag Coefficient <span class="value-display" id="air-drag-val">0.045</span></label>
-          <input type="range" id="air-drag" min="0.02" max="0.05" step="0.005" value="0.045" oninput="updateVal('air-drag')">
+          <label for="air-drag">Air Drag Coefficient <span class="value-display" id="air-drag-val">0.035</span></label>
+          <input type="range" id="air-drag" min="0.02" max="0.05" step="0.005" value="0.035" oninput="updateVal('air-drag')">
         </div>
       </div>
 
@@ -910,8 +910,8 @@
         </div>
 
         <div class="control-row">
-          <label for="trail-length">Trail Length <span class="value-display" id="trail-length-val">5 ghosts</span></label>
-          <input type="range" id="trail-length" min="3" max="20" step="1" value="5" oninput="updateVal('trail-length')">
+          <label for="trail-length">Trail Length <span class="value-display" id="trail-length-val">12 ghosts</span></label>
+          <input type="range" id="trail-length" min="3" max="20" step="1" value="12" oninput="updateVal('trail-length')">
         </div>
       </div>
 
@@ -952,6 +952,7 @@
     let particles = [];
     let animationFrameId = null;
     let lastTime = performance.now();
+    const shouldRepeatExplosion = true;
 
     // Center of firework card (offset adjusted relative to canvas coordinate plane)
     const cx = 240.5;
@@ -1089,23 +1090,44 @@
       const horizontalBias = Math.abs(Math.cos(angle));
       const verticalBias = Math.abs(Math.sin(angle));
       const radialBias = Math.min(1, startRadius / Math.max(1, 10 * explosionScale));
+      const normAngle = (angle + Math.PI * 2) % (Math.PI * 2);
+      const isUpperBurst = normAngle > Math.PI && normAngle < Math.PI * 2;
+      const isLowerBurst = normAngle > 0 && normAngle < Math.PI;
+      const isRightSide = normAngle < Math.PI / 4 || normAngle > Math.PI * 7 / 4;
+      const isLeftSide = normAngle > Math.PI * 3 / 4 && normAngle < Math.PI * 5 / 4;
+      const isSideFan = isLeftSide || isRightSide;
+      const isTopCore = normAngle > Math.PI * 1.35 && normAngle < Math.PI * 1.65;
+      const isBottomTail = normAngle > Math.PI * 0.35 && normAngle < Math.PI * 0.65;
 
-      if (radialBias < 0.22) {
-        return pickWeightedGlyph(
-          verticalBias > 0.55 ? GLYPH_SETS.vertical : GLYPH_SETS.compact
-        );
+      if (radialBias < 0.18) {
+        if (isTopCore || verticalBias > 0.82) {
+          return pickWeightedGlyph(GLYPH_SETS.vertical);
+        }
+        return pickWeightedGlyph(GLYPH_SETS.compact);
       }
 
-      if (horizontalBias > 0.82) {
+      if (isTopCore) {
+        return pickWeightedGlyph(verticalBias > 0.9 ? GLYPH_SETS.vertical : GLYPH_SETS.compact);
+      }
+
+      if (isSideFan && radialBias > 0.32) {
         return pickWeightedGlyph(GLYPH_SETS.horizontal);
       }
 
-      if (verticalBias > 0.82) {
+      if (isBottomTail) {
+        return pickWeightedGlyph(radialBias > 0.45 ? GLYPH_SETS.vertical : GLYPH_SETS.compact);
+      }
+
+      if (verticalBias > 0.86 && isUpperBurst) {
         return pickWeightedGlyph(GLYPH_SETS.vertical);
       }
 
-      if (radialBias > 0.7 && horizontalBias > verticalBias) {
+      if (horizontalBias > 0.8 && radialBias > 0.58) {
         return pickWeightedGlyph(GLYPH_SETS.horizontal);
+      }
+
+      if (isLowerBurst && radialBias > 0.62) {
+        return pickWeightedGlyph(GLYPH_SETS.compact);
       }
 
       return pickWeightedGlyph(GLYPH_SETS.diagonal);
@@ -1299,7 +1321,7 @@
           return active;
         });
 
-        if (particles.length === 0) {
+        if (particles.length === 0 && shouldRepeatExplosion) {
           setTimeout(launch, 1000);
         }
       }
@@ -1354,13 +1376,13 @@
 
     function resetControls() {
       document.getElementById('particle-count').value = 200;
-      document.getElementById('explosion-scale').value = 1;
-      document.getElementById('particle-size').value = 2.5;
+      document.getElementById('explosion-scale').value = 0.75;
+      document.getElementById('particle-size').value = 1.7;
       document.getElementById('burst-speed').value = 330;
-      document.getElementById('gravity').value = 120;
-      document.getElementById('air-drag').value = 0.045;
+      document.getElementById('gravity').value = 190;
+      document.getElementById('air-drag').value = 0.035;
       document.getElementById('lifetime').value = 3;
-      document.getElementById('trail-length').value = 5;
+      document.getElementById('trail-length').value = 12;
       document.getElementById('toggle-overlay').checked = false;
 
       const controls = ['particle-count', 'explosion-scale', 'particle-size', 'burst-speed', 'gravity', 'air-drag', 'lifetime', 'trail-length'];
