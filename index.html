@@ -911,7 +911,7 @@
 
         <div class="control-row">
           <label for="trail-length">Trail Length <span class="value-display" id="trail-length-val">5 ghosts</span></label>
-          <input type="range" id="trail-length" min="3" max="6" step="1" value="5" oninput="updateVal('trail-length')">
+          <input type="range" id="trail-length" min="3" max="20" step="1" value="5" oninput="updateVal('trail-length')">
         </div>
       </div>
 
@@ -1043,8 +1043,117 @@
 
     // Particle class for a scratch-built firework test. These are generated marks,
     // not pieces of the static SVG, so there is no fixed central layer to retain.
+    const GLYPH_SETS = {
+      compact: [
+        { weight: 18, cells: [[0, 0]] },
+        { weight: 9, cells: [[0, 0], [0, 1]] },
+        { weight: 7, cells: [[0, 0], [1, 0]] },
+        { weight: 4, cells: [[0, 0], [0, 1], [1, 1]] },
+        { weight: 4, cells: [[0, 0], [1, 0], [1, 1]] }
+      ],
+      vertical: [
+        { weight: 11, cells: [[0, 0], [0, 1]] },
+        { weight: 7, cells: [[0, 0], [0, 1], [0, 2]] },
+        { weight: 5, cells: [[0, 0], [0, 1], [1, 1]] },
+        { weight: 4, cells: [[0, 1], [1, 0], [1, 1], [1, 2]] },
+        { weight: 2, cells: [[0, 0], [1, 0], [1, 1], [1, 2]] }
+      ],
+      horizontal: [
+        { weight: 10, cells: [[0, 0], [1, 0]] },
+        { weight: 7, cells: [[0, 0], [1, 0], [2, 0]] },
+        { weight: 5, cells: [[0, 0], [1, 0], [1, 1]] },
+        { weight: 4, cells: [[0, 0], [1, 0], [1, 1], [2, 1]] },
+        { weight: 2, cells: [[0, 0], [1, 0], [2, 0], [1, 1]] }
+      ],
+      diagonal: [
+        { weight: 6, cells: [[0, 0], [0, 1], [1, 1]] },
+        { weight: 6, cells: [[0, 0], [1, 0], [1, 1]] },
+        { weight: 4, cells: [[0, 0], [1, 0], [1, 1], [2, 1]] },
+        { weight: 4, cells: [[0, 1], [1, 0], [1, 1], [2, 0]] },
+        { weight: 3, cells: [[0, 0], [0, 1], [1, 1], [1, 2]] },
+        { weight: 3, cells: [[0, 0], [1, 0], [1, 1], [1, 2]] }
+      ]
+    };
+
+    function pickWeightedGlyph(options) {
+      const totalWeight = options.reduce((sum, glyph) => sum + glyph.weight, 0);
+      let roll = Math.random() * totalWeight;
+      for (const glyph of options) {
+        roll -= glyph.weight;
+        if (roll <= 0) return glyph;
+      }
+      return options[0];
+    }
+
+    function pickParticleGlyph(angle, startRadius, explosionScale) {
+      const horizontalBias = Math.abs(Math.cos(angle));
+      const verticalBias = Math.abs(Math.sin(angle));
+      const radialBias = Math.min(1, startRadius / Math.max(1, 10 * explosionScale));
+
+      if (radialBias < 0.22) {
+        return pickWeightedGlyph(
+          verticalBias > 0.55 ? GLYPH_SETS.vertical : GLYPH_SETS.compact
+        );
+      }
+
+      if (horizontalBias > 0.82) {
+        return pickWeightedGlyph(GLYPH_SETS.horizontal);
+      }
+
+      if (verticalBias > 0.82) {
+        return pickWeightedGlyph(GLYPH_SETS.vertical);
+      }
+
+      if (radialBias > 0.7 && horizontalBias > verticalBias) {
+        return pickWeightedGlyph(GLYPH_SETS.horizontal);
+      }
+
+      return pickWeightedGlyph(GLYPH_SETS.diagonal);
+    }
+
+    function strokePatternOutline(cells, unit) {
+      const lookup = new Set(cells.map(([x, y]) => `${x},${y}`));
+      const minX = Math.min(...cells.map(([x]) => x));
+      const maxX = Math.max(...cells.map(([x]) => x + 1));
+      const minY = Math.min(...cells.map(([, y]) => y));
+      const maxY = Math.max(...cells.map(([, y]) => y + 1));
+      const offsetX = -((minX + maxX) * unit) / 2;
+      const offsetY = -((minY + maxY) * unit) / 2;
+
+      ctx.beginPath();
+
+      for (const [x, y] of cells) {
+        const left = offsetX + x * unit;
+        const top = offsetY + y * unit;
+
+        if (!lookup.has(`${x},${y - 1}`)) {
+          ctx.moveTo(left, top);
+          ctx.lineTo(left + unit, top);
+        }
+        if (!lookup.has(`${x + 1},${y}`)) {
+          ctx.moveTo(left + unit, top);
+          ctx.lineTo(left + unit, top + unit);
+        }
+        if (!lookup.has(`${x},${y + 1}`)) {
+          ctx.moveTo(left + unit, top + unit);
+          ctx.lineTo(left, top + unit);
+        }
+        if (!lookup.has(`${x - 1},${y}`)) {
+          ctx.moveTo(left, top + unit);
+          ctx.lineTo(left, top);
+        }
+      }
+
+      ctx.stroke();
+    }
+
+    function strokeGlyph(glyph, unit, lineWidth) {
+      ctx.lineWidth = lineWidth;
+      strokePatternOutline(glyph.cells, unit);
+    }
+
     class Particle {
-      constructor(x, y, vx, vy, size, lifetime) {
+      constructor(x, y, vx, vy, size, lifetime, glyph) {
         this.x = x;
         this.y = y;
         this.vx = vx;
@@ -1053,12 +1162,9 @@
         this.lifetime = lifetime;
         this.age = 0;
         this.history = [];
-        this.angle = Math.random() * Math.PI * 2;
-        this.spin = (Math.random() - 0.5) * 8;
         this.dragBias = 0.65 + Math.random() * 0.7;
         this.gravityBias = 0.75 + Math.random() * 0.7;
-        this.fadeStart = 0.5 + Math.random() * 0.22;
-        this.opacity = 1;
+        this.glyph = glyph;
       }
 
       update(dt, drag, gravity) {
@@ -1068,7 +1174,7 @@
         if (progress >= 1.0) return false;
 
         // Store history for trails
-        this.history.unshift({ x: this.x, y: this.y, angle: this.angle });
+        this.history.unshift({ x: this.x, y: this.y });
         const trailLen = parseInt(document.getElementById('trail-length').value);
         if (this.history.length > trailLen) {
           this.history.pop();
@@ -1081,44 +1187,31 @@
 
         this.x += this.vx * dt;
         this.y += this.vy * dt;
-        this.angle += this.spin * dt;
-
-        const fadeProgress = Math.max(0, (progress - this.fadeStart) / (1 - this.fadeStart));
-        this.opacity = Math.max(0, 1 - fadeProgress);
 
         return true;
       }
 
       draw() {
-        if (this.opacity <= 0.01) return;
-
-        // Draw fading trail ghosts.
-        const drawSize = this.size * 1.8;
+        // Draw crisp stepped trail echoes with no alpha fade.
+        const unit = this.size * 1.8;
         for (let i = this.history.length - 1; i >= 0; i--) {
           const pos = this.history[i];
-          const trailProgress = (i + 1) / (this.history.length + 1);
-          const trailAlpha = this.opacity * (1 - trailProgress) * 0.2;
-          if (trailAlpha <= 0.02) continue;
+          if (i > 1 && i % 2 !== 0) continue;
 
           ctx.save();
           ctx.translate(cx + pos.x, cy + pos.y);
-          ctx.rotate(pos.angle);
           ctx.strokeStyle = '#ffffff';
-          ctx.globalAlpha = trailAlpha;
-          ctx.lineWidth = 1.5;
-          ctx.strokeRect(-drawSize / 2, -drawSize / 2, drawSize, drawSize);
+          ctx.globalAlpha = 1;
+          strokeGlyph(this.glyph, unit, i === 0 ? 1.5 : 1);
           ctx.restore();
         }
 
-        // Draw the main generated particle mark.
+        // Draw the main particle without rotation or fade.
         ctx.save();
         ctx.translate(cx + this.x, cy + this.y);
-        ctx.rotate(this.angle);
         ctx.strokeStyle = '#ffffff';
-        ctx.globalAlpha = this.opacity;
-        ctx.lineWidth = 1.5;
-
-        ctx.strokeRect(-drawSize / 2, -drawSize / 2, drawSize, drawSize);
+        ctx.globalAlpha = 1;
+        strokeGlyph(this.glyph, unit, 1.5);
 
         ctx.restore();
       }
@@ -1234,14 +1327,23 @@
         const ry = Math.sin(angle) * startRadius;
 
         const speed = baseSpeed * (0.55 + Math.random() * 1.45) * explosionScale;
-        const tangent = (Math.random() - 0.5) * 0.45;
+        const tangent = (Math.random() - 0.5) * 0.18;
         const explodeAngle = angle + tangent;
         
         const vx = Math.cos(explodeAngle) * speed;
         const vy = Math.sin(explodeAngle) * speed;
         
         const particleLife = lifetime * (0.75 + Math.random() * 0.5);
-        particles.push(new Particle(rx, ry, vx, vy, particleSize * (0.9 + Math.random() * 1.15), particleLife));
+        const glyph = pickParticleGlyph(explodeAngle, startRadius, explosionScale);
+        particles.push(new Particle(
+          rx,
+          ry,
+          vx,
+          vy,
+          particleSize * (0.9 + Math.random() * 1.15),
+          particleLife,
+          glyph
+        ));
       }
     }
 
